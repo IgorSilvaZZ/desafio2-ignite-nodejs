@@ -9,7 +9,7 @@ import createConnection from "../../../../database";
 
 let connection: Connection;
 
-describe("Show profile user", () => {
+describe("Get Balance Controller", () => {
   beforeAll(async () => {
     connection = await createConnection();
     await connection.runMigrations();
@@ -19,9 +19,9 @@ describe("Show profile user", () => {
     const password = await hash("userTest", 8);
 
     await connection.query(`
-            insert into users (id, name, email, password, created_at, updated_at) 
-            values ('${id}', 'user', 'user@test.com.br', '${password}', now(), now())
-    `);
+                insert into users (id, name, email, password, created_at, updated_at) 
+                values ('${id}', 'user', 'user@test.com.br', '${password}', now(), now())
+        `);
   });
 
   afterAll(async () => {
@@ -29,7 +29,7 @@ describe("Show profile user", () => {
     await connection.close();
   });
 
-  it("Should be able profile user", async () => {
+  it("Should be able get balance a user", async () => {
     const responseAuth = await request(app).post("/api/v1/sessions").send({
       email: "user@test.com.br",
       password: "userTest",
@@ -37,23 +37,31 @@ describe("Show profile user", () => {
 
     const { token } = responseAuth.body;
 
+    await request(app)
+      .post("/api/v1/statements/deposit")
+      .send({
+        amount: 150,
+        description: "Test Deposit",
+      })
+      .set({
+        Authorization: `Bearer ${token}`,
+      });
+
     const response = await request(app)
-      .get("/api/v1/profile")
+      .get("/api/v1/statements/balance")
       .set({
         Authorization: `Bearer ${token}`,
       });
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty("id");
-    expect(response.body.email).toEqual("user@test.com.br");
+    expect(response.body).toHaveProperty("balance");
+    expect(response.body.balance).toBe(150);
   });
 
-  it("Should not be able profile user not exists!", async () => {
-    const response = await request(app)
-      .get("/api/v1/profile")
-      .set({
-        Authorization: `Bearer ${"ASDASDKASKDKSKDKSADKASDKKADKAKSDKAKDK"}`,
-      });
+  it("Should not be able get balance with user not exists", async () => {
+    const response = await request(app).get("/api/v1/statements/balance").set({
+      Authorization: `Bearer token_is_invalid`,
+    });
 
     expect(response.status).toBe(401);
   });
